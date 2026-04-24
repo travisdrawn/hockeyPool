@@ -20,6 +20,3 @@ services:
       - key: PORT
         scope: RUN_TIME
         value: "8080"
-      - key: BASE_PATH
-        scope: RUN_TIME
-        value: "/hockeypool"
