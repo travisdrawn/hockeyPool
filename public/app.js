@@ -2,8 +2,9 @@ let state = { players: {}, participants: [], lastUpdated: null };
 let selectedParticipant = null;
 
 function init() {
-  // Use a path-relative URL so it works under any subpath (e.g. /hockeypool)
-  const base = window.location.pathname.replace(/\/[^/]*$/, '');
+  // Compute API base from the page URL so it works at any subpath (/hockeypool) or root (/)
+  const p = window.location.pathname;
+  const base = p.includes('.') ? p.replace(/\/[^/]*$/, '') : p.replace(/\/$/, '');
   const evtSource = new EventSource(base + '/api/stream');
   evtSource.onmessage = e => {
     state = JSON.parse(e.data);

@@ -68,9 +68,11 @@
 
   <script>
     let allPlayers = [];
+    const p = window.location.pathname;
+    const BASE = p.includes('.') ? p.replace(/\/[^/]*$/, '') : p.replace(/\/$/, '');
 
     async function loadData() {
-      const res = await fetch('/api/data');
+      const res = await fetch(BASE + '/api/data');
       const data = await res.json();
       allPlayers = Object.entries(data.players)
         .map(([name, info]) => ({ name, points: info.points, isTandem: info.isTandem }))
@@ -107,7 +109,7 @@
         points: parseInt(document.getElementById('pts_' + p.name)?.value ?? p.points, 10),
       }));
 
-      const res = await fetch('/api/update', {
+      const res = await fetch(BASE + '/api/update', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ adminKey: document.getElementById('adminKey').value, updates }),
