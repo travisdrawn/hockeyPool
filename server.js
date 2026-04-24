@@ -7,28 +7,30 @@ const { syncStats } = require('./nhlSync');
 const app = express();
 const clients = new Set();
 
+// BASE_PATH lets the app run under a subpath (e.g. /hockeypool) without code changes.
+// Leave empty for root deployments (local dev).
+const BASE = (process.env.BASE_PATH || '').replace(/\/$/, '');
+
 app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(BASE, express.static(path.join(__dirname, 'public')));
 
 // Server-Sent Events — all connected browsers get live updates
-app.get('/api/stream', (req, res) => {
+app.get(BASE + '/api/stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('X-Accel-Buffering', 'no'); // disable nginx buffering
+  res.setHeader('X-Accel-Buffering', 'no');
   res.flushHeaders();
 
   const send = data => res.write(`data: ${JSON.stringify(data)}\n\n`);
-  const ping = () => res.write(': ping\n\n'); // keepalive for Cloudflare (100s timeout)
+  const ping = () => res.write(': ping\n\n');
 
   getLeaderboardData()
     .then(send)
     .catch(err => console.error('SSE initial data error:', err));
 
-  // Ping every 25s so proxies/Cloudflare don't drop the connection
   const keepalive = setInterval(ping, 25000);
-
   clients.add(send);
   req.on('close', () => {
     clearInterval(keepalive);
@@ -40,7 +42,7 @@ function broadcast(data) {
   clients.forEach(send => send(data));
 }
 
-app.get('/api/data', async (req, res) => {
+app.get(BASE + '/api/data', async (req, res) => {
   try {
     res.json(await getLeaderboardData());
   } catch (err) {
@@ -49,9 +51,7 @@ app.get('/api/data', async (req, res) => {
   }
 });
 
-// Admin: update one or more player point totals manually
-// Body: { adminKey: string, updates: [{ name: string, points: number }] }
-app.post('/api/update', async (req, res) => {
+app.post(BASE + '/api/update', async (req, res) => {
   if (req.body.adminKey !== process.env.ADMIN_KEY) {
     return res.status(401).json({ error: 'Invalid admin key' });
   }
@@ -70,8 +70,7 @@ app.post('/api/update', async (req, res) => {
   }
 });
 
-// Admin: force an immediate NHL API sync
-app.post('/api/sync', async (req, res) => {
+app.post(BASE + '/api/sync', async (req, res) => {
   if (req.body.adminKey !== process.env.ADMIN_KEY) {
     return res.status(401).json({ error: 'Invalid admin key' });
   }
@@ -79,15 +78,13 @@ app.post('/api/sync', async (req, res) => {
   syncStats(broadcast).catch(err => console.error('Manual sync error:', err));
 });
 
-app.get('/api/health', (req, res) => res.json({ ok: true }));
+app.get(BASE + '/api/health', (req, res) => res.json({ ok: true }));
 
-const SYNC_INTERVAL_MS = 10 * 60 * 1000; // 10 minutes
+const SYNC_INTERVAL_MS = 10 * 60 * 1000;
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Hockey pool running on http://localhost:${PORT}`);
-
-  // Initial sync on startup, then every 10 minutes
+  console.log(`Hockey pool running on http://localhost:${PORT}${BASE}`);
   syncStats(broadcast).catch(err => console.error('Startup sync error:', err));
   setInterval(
     () => syncStats(broadcast).catch(err => console.error('Scheduled sync error:', err)),
