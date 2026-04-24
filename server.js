@@ -16,16 +16,24 @@ app.get('/api/stream', (req, res) => {
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
   res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('X-Accel-Buffering', 'no'); // disable nginx buffering
   res.flushHeaders();
 
   const send = data => res.write(`data: ${JSON.stringify(data)}\n\n`);
+  const ping = () => res.write(': ping\n\n'); // keepalive for Cloudflare (100s timeout)
 
   getLeaderboardData()
     .then(send)
     .catch(err => console.error('SSE initial data error:', err));
 
+  // Ping every 25s so proxies/Cloudflare don't drop the connection
+  const keepalive = setInterval(ping, 25000);
+
   clients.add(send);
-  req.on('close', () => clients.delete(send));
+  req.on('close', () => {
+    clearInterval(keepalive);
+    clients.delete(send);
+  });
 });
 
 function broadcast(data) {

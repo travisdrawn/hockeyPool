@@ -2,7 +2,9 @@ let state = { players: {}, participants: [], lastUpdated: null };
 let selectedParticipant = null;
 
 function init() {
-  const evtSource = new EventSource('/api/stream');
+  // Use a path-relative URL so it works under any subpath (e.g. /hockeypool)
+  const base = window.location.pathname.replace(/\/[^/]*$/, '');
+  const evtSource = new EventSource(base + '/api/stream');
   evtSource.onmessage = e => {
     state = JSON.parse(e.data);
     render();
