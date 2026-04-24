@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Pool Admin — 2026 NHL</title>
+  <link rel="stylesheet" href="styles.css">
+  <style>
+    .admin-wrap { max-width: 700px; margin: 32px auto; padding: 0 16px; }
+    .admin-header { margin-bottom: 24px; }
+    .key-row { display: flex; gap: 10px; margin-bottom: 24px; }
+    .key-row input {
+      flex: 1; background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); padding: 10px 14px; border-radius: 8px; font-size: 0.95rem;
+    }
+    .key-row input:focus { outline: 2px solid var(--blue); border-color: transparent; }
+    .btn {
+      background: var(--blue); color: #fff; border: none; padding: 10px 20px;
+      border-radius: 8px; font-size: 0.9rem; font-weight: 600; cursor: pointer;
+      transition: opacity 0.15s;
+    }
+    .btn:hover { opacity: 0.85; }
+    .btn.save { background: #16a34a; width: 100%; margin-top: 16px; padding: 14px; font-size: 1rem; }
+    .player-table { display: flex; flex-direction: column; gap: 4px; }
+    .player-row {
+      display: grid; grid-template-columns: 1fr 100px;
+      align-items: center; gap: 12px;
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 8px; padding: 10px 14px;
+    }
+    .player-row label { font-size: 0.9rem; cursor: pointer; }
+    .player-row label.is-tandem { color: var(--blue); }
+    .pts-input {
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); padding: 6px 10px; border-radius: 6px;
+      font-size: 0.95rem; font-weight: 700; width: 100%; text-align: center;
+    }
+    .pts-input:focus { outline: 2px solid var(--gold); border-color: transparent; }
+    .section-label {
+      font-size: 0.75rem; font-weight: 700; letter-spacing: 0.08em;
+      color: var(--text-muted); text-transform: uppercase; margin: 20px 0 8px;
+    }
+    .toast {
+      position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+      background: #16a34a; color: #fff; padding: 10px 24px; border-radius: 8px;
+      font-weight: 600; opacity: 0; transition: opacity 0.3s; pointer-events: none;
+    }
+    .toast.show { opacity: 1; }
+    .toast.error { background: #dc2626; }
+  </style>
+</head>
+<body>
+  <div class="admin-wrap">
+    <div class="admin-header">
+      <h1>&#9881;&#65039; Pool Admin</h1>
+      <p class="subtitle">Update player point totals</p>
+    </div>
+
+    <div class="key-row">
+      <input type="password" id="adminKey" placeholder="Admin key" />
+      <button class="btn" onclick="loadData()">Load</button>
+    </div>
+
+    <div id="content"></div>
+  </div>
+
+  <div id="toast" class="toast"></div>
+
+  <script>
+    let allPlayers = [];
+
+    async function loadData() {
+      const res = await fetch('/api/data');
+      const data = await res.json();
+      allPlayers = Object.entries(data.players)
+        .map(([name, info]) => ({ name, points: info.points, isTandem: info.isTandem }))
+        .sort((a, b) => a.name.localeCompare(b.name));
+      renderForm();
+    }
+
+    function renderForm() {
+      const skaters = allPlayers.filter(p => !p.isTandem);
+      const tandems = allPlayers.filter(p => p.isTandem);
+
+      const rows = group => group.map(p => `
+        <div class="player-row">
+          <label class="${p.isTandem ? 'is-tandem' : ''}">${esc(p.name)}</label>
+          <input class="pts-input" type="number" min="0" id="pts_${esc(p.name)}"
+                 value="${p.points}" />
+        </div>
+      `).join('');
+
+      document.getElementById('content').innerHTML = `
+        <div class="player-table">
+          <div class="section-label">Skaters</div>
+          ${rows(skaters)}
+          <div class="section-label">Tandems</div>
+          ${rows(tandems)}
+        </div>
+        <button class="btn save" onclick="saveAll()">Save &amp; Broadcast</button>
+      `;
+    }
+
+    async function saveAll() {
+      const updates = allPlayers.map(p => ({
+        name: p.name,
+        points: parseInt(document.getElementById('pts_' + p.name)?.value ?? p.points, 10),
+      }));
+
+      const res = await fetch('/api/update', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ adminKey: document.getElementById('adminKey').value, updates }),
+      });
+
+      const json = await res.json();
+      if (json.success) {
+        showToast('Saved! Leaderboard updated.', false);
+      } else {
+        showToast(json.error || 'Error saving', true);
+      }
+    }
+
+    function showToast(msg, isError) {
+      const t = document.getElementById('toast');
+      t.textContent = msg;
+      t.className = 'toast show' + (isError ? ' error' : '');
+      setTimeout(() => t.classList.remove('show'), 3000);
+    }
+
+    function esc(s) {
+      return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+              .replace(/"/g,'&quot;').replace(/'/g,'&#39;');
+    }
+  </script>
+</body>
+</html>

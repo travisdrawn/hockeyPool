@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>2026 NHL Playoff Pool</title>
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <div id="app">
+    <header>
+      <div class="header-inner">
+        <div>
+          <h1>&#127944; 2026 NHL Playoff Pool</h1>
+          <p class="subtitle">Live Standings</p>
+        </div>
+        <div class="header-meta">
+          <span class="live-badge">&#9679; LIVE</span>
+          <span class="last-updated" id="lastUpdated">Connecting&hellip;</span>
+        </div>
+      </div>
+    </header>
+
+    <main>
+      <div id="leaderboard" class="leaderboard">
+        <div class="loading">Loading standings&hellip;</div>
+      </div>
+    </main>
+
+    <div id="overlay" class="overlay hidden" onclick="closeRoster()"></div>
+
+    <aside id="rosterPanel" class="roster-panel hidden">
+      <div class="roster-panel-header">
+        <div>
+          <h2 id="rosterName"></h2>
+          <span id="rosterTotal" class="roster-total"></span>
+        </div>
+        <button class="close-btn" onclick="closeRoster()">&#10005;</button>
+      </div>
+      <div id="rosterList" class="roster-list"></div>
+    </aside>
+  </div>
+
+  <script src="app.js"></script>
+</body>
+</html>

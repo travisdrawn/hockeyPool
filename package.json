@@ -1,0 +1,18 @@
+{
+  "name": "hockey-pool",
+  "version": "1.0.0",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "node --watch server.js",
+    "seed": "node seed.js",
+    "local:up": "docker compose up -d",
+    "local:seed": "DATABASE_URL=postgresql://hockeypool:localdev@localhost:5432/hockeypool ADMIN_KEY=hockey2026 node seed.js",
+    "local:down": "docker compose down"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "pg": "^8.11.5",
+    "dotenv": "^16.4.5"
+  }
+}
