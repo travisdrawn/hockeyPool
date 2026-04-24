@@ -10,6 +10,11 @@ services:
     http_port: 8080
     instance_count: 1
     instance_size_slug: apps-s-1vcpu-0.5gb
+    routes:
+      - path: /hockeypool
+        preserve_path_prefix: true
+    health_check:
+      http_path: /hockeypool/api/health
     envs:
       - key: DATABASE_URL
         scope: RUN_TIME
@@ -20,3 +25,6 @@ services:
       - key: PORT
         scope: RUN_TIME
         value: "8080"
+      - key: BASE_PATH
+        scope: RUN_TIME
+        value: "/hockeypool"

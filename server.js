@@ -7,10 +7,19 @@ const { syncStats } = require('./nhlSync');
 const app = express();
 const clients = new Set();
 
-app.use(express.json());
-app.use(express.static(path.join(__dirname, 'public')));
+// BASE_PATH: set to /hockeypool on DO, empty for local dev
+const BASE = (process.env.BASE_PATH || '').replace(/\/$/, '');
 
-app.get('/api/stream', (req, res) => {
+app.use(express.json());
+
+// Redirect /hockeypool → /hockeypool/ so relative URLs in HTML resolve correctly
+if (BASE) {
+  app.get(BASE, (req, res) => res.redirect(301, BASE + '/'));
+}
+
+app.use(BASE + '/', express.static(path.join(__dirname, 'public')));
+
+app.get(BASE + '/api/stream', (req, res) => {
   res.setHeader('Content-Type', 'text/event-stream');
   res.setHeader('Cache-Control', 'no-cache');
   res.setHeader('Connection', 'keep-alive');
@@ -37,7 +46,7 @@ function broadcast(data) {
   clients.forEach(send => send(data));
 }
 
-app.get('/api/data', async (req, res) => {
+app.get(BASE + '/api/data', async (req, res) => {
   try {
     res.json(await getLeaderboardData());
   } catch (err) {
@@ -46,7 +55,7 @@ app.get('/api/data', async (req, res) => {
   }
 });
 
-app.post('/api/update', async (req, res) => {
+app.post(BASE + '/api/update', async (req, res) => {
   if (req.body.adminKey !== process.env.ADMIN_KEY) {
     return res.status(401).json({ error: 'Invalid admin key' });
   }
@@ -65,7 +74,7 @@ app.post('/api/update', async (req, res) => {
   }
 });
 
-app.post('/api/sync', async (req, res) => {
+app.post(BASE + '/api/sync', async (req, res) => {
   if (req.body.adminKey !== process.env.ADMIN_KEY) {
     return res.status(401).json({ error: 'Invalid admin key' });
   }
@@ -73,13 +82,15 @@ app.post('/api/sync', async (req, res) => {
   syncStats(broadcast).catch(err => console.error('Manual sync error:', err));
 });
 
+// Health check at both root and prefixed path so DO can reach it
 app.get('/api/health', (req, res) => res.json({ ok: true }));
+if (BASE) app.get(BASE + '/api/health', (req, res) => res.json({ ok: true }));
 
 const SYNC_INTERVAL_MS = 10 * 60 * 1000;
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
-  console.log(`Hockey pool running on http://localhost:${PORT}`);
+  console.log(`Hockey pool running on http://localhost:${PORT}${BASE}/`);
   syncStats(broadcast).catch(err => console.error('Startup sync error:', err));
   setInterval(
     () => syncStats(broadcast).catch(err => console.error('Scheduled sync error:', err)),
