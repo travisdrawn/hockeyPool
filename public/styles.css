@@ -65,6 +65,14 @@ h1 { font-size: 1.6rem; font-weight: 700; letter-spacing: -0.02em; }
 
 .last-updated { font-size: 0.75rem; color: var(--text-muted); }
 
+.nav-link {
+  font-size: 0.8rem; font-weight: 600; color: var(--text-muted);
+  text-decoration: none; padding: 4px 10px;
+  border: 1px solid var(--border); border-radius: 20px;
+  transition: color 0.15s, border-color 0.15s;
+}
+.nav-link:hover { color: var(--text); border-color: var(--blue); }
+
 /* ── Main ── */
 main { max-width: 900px; margin: 32px auto; padding: 0 16px; }
 

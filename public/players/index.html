@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Player Stats — 2026 NHL Pool</title>
+  <script>if (!location.pathname.endsWith('/')) location.replace(location.pathname + '/' + location.search + location.hash);</script>
+  <link rel="stylesheet" href="../styles.css">
+  <style>
+    .page-wrap { max-width: 700px; margin: 0 auto; padding: 0 12px 40px; }
+
+    .toolbar {
+      position: sticky; top: 64px; z-index: 9;
+      background: var(--bg);
+      padding: 10px 0 8px;
+      display: flex; flex-direction: column; gap: 8px;
+    }
+
+    .search-input {
+      width: 100%;
+      background: var(--surface2); border: 1px solid var(--border);
+      color: var(--text); padding: 10px 16px; border-radius: 24px;
+      font-size: 1rem;
+    }
+    .search-input:focus { outline: 2px solid var(--blue); border-color: transparent; }
+
+    .filter-row {
+      display: flex; gap: 8px;
+    }
+    .filter-btn {
+      flex: 1;
+      background: var(--surface); border: 1px solid var(--border);
+      color: var(--text-muted); padding: 8px 0; border-radius: 20px;
+      font-size: 0.82rem; font-weight: 600; cursor: pointer; transition: all 0.15s;
+      text-align: center;
+    }
+    .filter-btn.active { background: var(--blue); border-color: var(--blue); color: #fff; }
+
+    .player-grid { display: flex; flex-direction: column; gap: 4px; }
+
+    .player-card {
+      background: var(--surface); border: 1px solid var(--border);
+      border-radius: 10px;
+      display: grid;
+      grid-template-columns: 44px 1fr 44px;
+      align-items: center;
+      gap: 10px;
+      padding: 12px 14px;
+    }
+    .player-card.tandem { border-left: 3px solid var(--blue); }
+
+    .player-rank {
+      font-size: 1rem; font-weight: 700; color: var(--text-muted); text-align: center;
+    }
+    .rank-1 .player-rank { color: var(--gold); font-size: 1.2rem; }
+    .rank-2 .player-rank { color: var(--silver); font-size: 1.2rem; }
+    .rank-3 .player-rank { color: var(--bronze); font-size: 1.2rem; }
+
+    .player-info { min-width: 0; }
+    .player-name {
+      font-size: 0.95rem; font-weight: 600;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .player-name.is-tandem { color: var(--blue); }
+    .player-meta {
+      font-size: 0.72rem; color: var(--text-muted); margin-top: 2px;
+      display: flex; gap: 6px; flex-wrap: wrap;
+    }
+    .player-owner { font-weight: 500; color: var(--text-muted); }
+    .player-detail { color: var(--text-muted); }
+
+    .player-pts {
+      font-size: 1.3rem; font-weight: 800; text-align: right;
+    }
+    .pts-high { color: var(--green); }
+    .pts-mid  { color: var(--gold); }
+    .pts-zero { color: var(--text-muted); }
+
+    .back-link {
+      display: inline-flex; align-items: center; gap: 6px;
+      color: var(--text-muted); font-size: 0.85rem; text-decoration: none;
+      padding: 14px 0 4px;
+      transition: color 0.15s;
+    }
+    .back-link:hover { color: var(--text); }
+  </style>
+</head>
+<body>
+  <header>
+    <div class="header-inner">
+      <div>
+        <h1>&#127954; 2026 NHL Pool</h1>
+        <p class="subtitle">Player Stats</p>
+      </div>
+      <div class="header-meta">
+        <span class="last-updated" id="lastUpdated">Loading&hellip;</span>
+      </div>
+    </div>
+  </header>
+
+  <div class="page-wrap">
+    <a href="../" class="back-link">&#8592; Standings</a>
+
+    <div class="toolbar">
+      <input class="search-input" type="search" placeholder="Search player or owner…"
+             oninput="render()" id="searchInput" autocomplete="off" />
+      <div class="filter-row">
+        <button class="filter-btn active" data-filter="all" onclick="setFilter(this)">All</button>
+        <button class="filter-btn" data-filter="skaters" onclick="setFilter(this)">Skaters</button>
+        <button class="filter-btn" data-filter="tandems" onclick="setFilter(this)">Tandems</button>
+      </div>
+    </div>
+
+    <div id="playerGrid" class="player-grid">
+      <div class="loading">Loading…</div>
+    </div>
+  </div>
+
+  <script>
+    const BASE = window.location.pathname.replace(/\/players\/?.*$/, '');
+
+    let allData = null;
+    let filter = 'all';
+
+    async function load() {
+      const res = await fetch(BASE + '/api/data');
+      allData = await res.json();
+      if (allData.lastUpdated) {
+        const d = new Date(allData.lastUpdated);
+        document.getElementById('lastUpdated').textContent =
+          'Updated ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+      }
+      render();
+    }
+
+    function setFilter(btn) {
+      filter = btn.dataset.filter;
+      document.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      render();
+    }
+
+    function render() {
+      if (!allData) return;
+      const q = document.getElementById('searchInput').value.toLowerCase();
+
+      const ownerMap = {};
+      allData.participants.forEach(part => {
+        part.roster.forEach(name => { ownerMap[name] = part.name; });
+      });
+
+      let players = Object.entries(allData.players).map(([name, info]) => ({
+        name, ...info, owner: ownerMap[name] ?? '—',
+      }));
+
+      if (filter === 'skaters') players = players.filter(p => !p.isTandem);
+      if (filter === 'tandems') players = players.filter(p => p.isTandem);
+      if (q) players = players.filter(p =>
+        p.name.toLowerCase().includes(q) || p.owner.toLowerCase().includes(q)
+      );
+
+      players.sort((a, b) => b.points - a.points);
+
+      if (!players.length) {
+        document.getElementById('playerGrid').innerHTML = '<div class="loading">No players found.</div>';
+        return;
+      }
+
+      document.getElementById('playerGrid').innerHTML = players.map((p, i) => {
+        const rank = i + 1;
+        const rankClass = rank <= 3 ? `rank-${rank}` : '';
+        const ptsClass = p.points >= 8 ? 'pts-high' : p.points >= 3 ? 'pts-mid' : 'pts-zero';
+        const medal = rank === 1 ? '🥇' : rank === 2 ? '🥈' : rank === 3 ? '🥉' : rank;
+
+        const statParts = [];
+        if (p.isTandem) {
+          if (p.wins)     statParts.push(`${p.wins}W`);
+          if (p.shutouts) statParts.push(`${p.shutouts}SO`);
+          if (p.goals)    statParts.push(`${p.goals}G`);
+          if (p.assists)  statParts.push(`${p.assists}A`);
+        } else {
+          if (p.goals)   statParts.push(`${p.goals}G`);
+          if (p.assists) statParts.push(`${p.assists}A`);
+        }
+        const detail = statParts.join(' · ') || (p.isTandem ? 'no stats yet' : 'no points yet');
+
+        return `
+          <div class="player-card ${rankClass}${p.isTandem ? ' tandem' : ''}">
+            <div class="player-rank">${medal}</div>
+            <div class="player-info">
+              <div class="player-name${p.isTandem ? ' is-tandem' : ''}">${esc(p.name)}</div>
+              <div class="player-meta">
+                <span class="player-owner">${esc(p.owner)}</span>
+                <span class="player-detail">${detail}</span>
+              </div>
+            </div>
+            <div class="player-pts ${ptsClass}">${p.points}</div>
+          </div>
+        `;
+      }).join('');
+    }
+
+    function esc(s) {
+      return String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    }
+
+    load();
+  </script>
+</body>
+</html>
